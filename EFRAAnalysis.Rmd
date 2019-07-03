@@ -1,0 +1,300 @@
+---
+title: "EFRA Committee Analysis: Plastic Food Packaging"
+output:
+  html_document: 
+    toc: true
+    toc_float: true
+fontsize: 14pt
+
+---
+```{r libs, echo=FALSE, message=FALSE, include=FALSE}
+source("global.R")
+library(gridExtra)
+
+```
+
+```{r functions, echo=FALSE, message=FALSE, include=FALSE, cache=TRUE}
+EFRA.file=read_csv("/Users/nicolenisbett/OneDrive - University of Leeds/PhD/Data/Platform Experiments/EFRA/EFRA Comments.csv")
+EFRA.tweetfile=read_csv("/Users/nicolenisbett/OneDrive - University of Leeds/PhD/Data/Platform Experiments/EFRA/EFRATweets.csv")
+EFRA.hours2=get_hours_fb(EFRA.file, "EFRAComments")
+EFRA.dates2=get_dates_discourse(EFRA.file, "EFRADebate")
+EFRA.comments=get_comments(EFRA.file, "EFRA")
+EFRA.tweets = get_tweet_comments2(EFRA.tweetfile, "EFRA", 46, 8)
+EFRA.dtweets=EFRA.tweets[!duplicated(EFRA.tweets$message),]
+EFRA.dtweets.corpus = clean_tweet_corpus(prep_corpus(EFRA.dtweets))
+EFRA.dtweets.corpus.df = get_corpus_df(EFRA.dtweets.corpus)
+
+EFRA.comments.clean=EFRA.comments
+EFRA.comments.clean[]<-lapply(EFRA.comments, gsub, pattern= 'none', replacement='')
+EFRA.corpus=clean_corpus(prep_corpus(EFRA.comments.clean))
+EFRA.corpus.df=get_corpus_df(EFRA.corpus)
+EFRA.frequencies=term_stats(EFRA.corpus)
+EFRA.dtm=get_dtm(EFRA.corpus)
+EFRA.dtm.bigram=get_dtm_bigram(EFRA.corpus)
+
+ud_model <- udpipe_download_model(language = "english")
+ud_model <- udpipe_load_model(ud_model$file_model)
+EFRA.ud=get_ud_data(EFRA.comments.clean)
+EFRA.12topics=get_topic_model(EFRA.dtm, 12)
+EFRA.12topics.bigram=get_topic_model(EFRA.dtm.bigram, 12)
+EFRA.btm = get_btm_model(EFRA.comments, 3)
+EFRA.idf = get_topic_idf(EFRA.12topics, EFRA.comments.clean)
+
+EFRA.readability=get_readability(EFRA.comments.clean)
+EFRA.ages=estimate_ages(EFRA.ud, EFRA.readability)
+
+```
+
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+This report gives a brief summary of the textual analysis of the submissions to the Discourse discussion on Pavement Parking by the EFRA Select Committee, and the tweets using the #PavementParking hashtag on Twitter. 
+
+
+### Summary of Key Points
+
+  * A total of **`r nrow(EFRA.comments)`** comments were posted to Discourse in 142 different topics.
+  * A total of **`r nrow(EFRA.tweets)`** tweets posted on Twitter, however only **`r nrow(EFRA.dtweets)`** were unique (the rest being retweets or quotes).
+  * **714** (24%) of the Discourse comments posted were as replies to another comment.
+  * There were **980** unique participants on the Discourse platform.
+  * Approximately A-level educated participants.
+  * Generally quite positive submissions on Discourse with fear and trust also being common sentiments. Twitter comments has less variation in sentiments overall.
+ 
+  
+  
+
+
+## Frequency Analysis {.tabset}
+
+Most comments were posted between the 6th - 13th June, with a major spike in activity on the 7th June receiving 1606 comments (55%) that day. The timings of comments were spread throughout the day, with 8am being the most popular time of day for users to be online. They were also very active at 10am and 7pm to a lesser extent. This pattern of peaks and troughs suggests users were revisiting the platform regularly throughout the day to respond to comments, especially in the morning.
+
+```{r timelines, echo=FALSE, fig.align='center',fig.width=10}
+#grid.arrange(
+subplot(
+  ggplotly(
+  ggplot(EFRA.hours2, aes(x= EFRAComments, y=Freq, group=1))+geom_line()+ xlab("Time") + ggtitle("Comments per hour")),
+
+  ggplotly(
+    ggplot(data=EFRA.dates2) +geom_line(aes(as.Date(x=EFRA.dates2[,1], format = "%d/%m/%Y"), y=EFRA.dates2[,2])) + scale_x_date(name="Date", date_breaks = "3 day", date_minor_breaks = "1 day",  date_labels = "%b %d" ) + ylab("Number of Comments") + theme(axis.text.x = element_text(angle = 45, hjust = 1)) +ggtitle("Comments by Date")),
+titleX = TRUE, titleY = TRUE)
+#  ncol=2)  
+
+```
+
+
+The Discourse comments had an average of **`r round(mean(get_each_comment_length(EFRA.comments)$Length))`** words in each compared to **`r round(mean(get_each_comment_length(EFRA.dtweets)$Length))`** on Twitter, which is normal pattern to observe. There was an average Flesch readability score of `r round(mean(EFRA.readability$Flesch))` suggesting readers needed to be educated to at least a UK Grade Level of `r round(mean(EFRA.readability$Flesch.Kincaid)) + 1` to understand the comments.
+
+<!--
+
+```{r}
+summary(get_each_comment_length(EFRA.comments)$Length)
+```
+
+```{r}
+display_term_frequencies(EFRA.frequencies, "EFRA Survey", 15 )
+```
+-->
+
+The most common adjectives, phrases and representative pairs of words are displayed below. People tend to express their emotions through the adjectives they use, and in this case "good" and "better" being used with words such as "biodegradable" and "recyclable" relate to people's largely positive attitude to reducing plastic food packaging. The phrases "carrier bag", "single use", "zero waste" and "menstrual cup" highlight some potential solutions and alternatives to plastic packaging and show a range of topics within the area were also being discussed. "Grey squirrel" has been included due to another discussion independent of this which was being discussed at the same time.
+
+```{r frequencies, echo=FALSE,  tidy=TRUE, fig.width=10}
+{grid.arrange(display_adjectives(EFRA.ud, 15), display_keywords(EFRA.ud, 15), ncol=2)}
+```
+
+
+
+A network of the most frequent consecutive word pairs (bigrams) is shown below. Overall both platforms showed similar types of discussions, however on Discourse this was more thorough and had increased suggestions for solutions.
+
+
+
+### Discourse
+
+This was a very popular discussion on Discourse where many different areas of discussion were raised over the week. "Recycling return scheme/s", "recycling bins", and "recycling centres" were mentioned often. "Local council/authority/shops" were also mentioned in relation to the "food supply chain", "fast food" and "fresh products". This also related to a discussion about "loose fruit and veg" and encouraging people to buy these instead of those packaged in plastic. 
+
+Discussions about "home composting", "reusable coffee cups" and "reusable fizzy drinks containers" were also raised along with calls for "tax incentives" to "reduce plastic". 
+"Biodegradable materials" and such as "glass bottles" for milk and "drinking water" are shows as possible solutions.
+
+Finally phrases such as "environmental cost", "future generations", and "climate emergency" show a particular concern of the participants surrounding the lasting damage that is being caused.
+
+```{r bigrams, echo=FALSE, tidy=TRUE, fig.width=15, fig.height=10}
+display_bigrams(EFRA.comments, 12, "Plastic Food Packaging Discussion")
+
+```
+
+
+
+### Twitter
+
+The Twitter discussion using #FoodPlastics revealed phrases such as "anti food waste" and a requirement for choices in food shopping and packaging. There was also concerns surrounding "eco footprint", "tricky truth", and "reframe foodwaste". Several users spoke of more procedural matters to do with the committee and the inquiry, with pghrases such as "written submissions", and "can't submit" so there was a clear awareness that this twitter discussion was being held by Parliament - which is not always the case. 
+
+```{r tweetbigrams, echo=FALSE, tidy=TRUE, fig.width=15, fig.height=10}
+display_bigrams(EFRA.dtweets, 1, "Plastic Food Packaging Twitter")
+
+```
+
+***
+
+## Topic Extraction
+
+<!--
+```{r}
+#optimal_topics(EFRA.dtm.bigram, 8,14,2)
+
+```
+-->
+
+Within the Discourse platform, a total of 4 topics were created by the EFRA team considering different areas of food and drink packaging, and another 138 topics by members of the public. As interpreting 142 topics would be very difficult, using natural language processing it is possible to estimate the optimal number of topics to group all comments into. 
+A plot of 5 words most associated with one of 12 topics are shown below. Each coloured bar chart represents a single topic. 
+
+A brief summary of those topics are:
+
+Topic Number  | Common words 
+-------- | ------------------
+Topic 1  | people guilty of pavement parking, areas affected by pavement parking
+Topic 2  | enforcement, further inquiries, traffic wardens, more regulation
+Topic 3  | photo examples of parked cars, necessity for education
+
+In this case, topic 1 was focused on who was guilty of parking on pavements and who was mostly afected. On the other hand, topic 2 captured comments about what measures should be put in place to deal with those who park on the pavement. Topic 3 was primarily people posting photos to show evidence of pavement parking.
+
+
+```{r, echo=FALSE, message = FALSE}
+#display_top_topics_btm(EFRA.btm, 10, "EFRA Discussion")
+
+EFRA.idf %>%
+  arrange(desc(tf_idf)) %>%
+  mutate(word = factor(word, levels = rev(unique(word)))) %>% 
+  group_by(Topic) %>% 
+  top_n(5) %>% 
+  ungroup() %>%
+  ggplot(aes(word, tf_idf, fill = as.factor(Topic))) +
+  geom_col(show.legend = FALSE) +
+  labs(x = NULL, y = "tf-idf") +
+  facet_wrap(~Topic, ncol = 4, scales = "free") +
+  coord_flip()
+
+```
+
+
+
+Following the link below will provide an alternative topic model visualisation which is split into two sections:
+
+  * **Left** - showing topic distances from each other based on the types of words in each,
+
+  * **Right** – showing the top 30 words pairs in each topic (red bar) and overall in the dataset (blue bar). I recommend setting the relevance metric to 0.6 to get a more representative list of words in each topic.
+
+This visualisation is interactive, hover over each topic number to view the words in each topic, or select each word to view which topics it is relevant to.  
+
+
+<!--
+```{r servis, echo=FALSE, message=FALSE, warning=FALSE}
+serVis(topicmodels2LDAvis(EFRA.12topics.bigram), out.dir="efra", open.browser = FALSE)
+htmltools::includeHTML("efra/index.html")
+```
+
+<head>
+  <script src="efra/d3.v3.js"></script>
+  <script src="efra/ldavis.js"></script>
+  <link rel="stylesheet" type="text/css" href="efra/lda.css">
+</head>
+<body>
+  <div id = "mydiv"></div>
+  <script>
+    var vis = new LDAvis("#mydiv", "lda.json");
+  </script>
+</body>
+
+
+<iframe width="1000" height="800" src="efra/index.html" frameborder="0"></iframe>
+
+-->
+
+
+## Sentiment Analysis 
+
+The wordcloud below gives the most popular words associated with positive and negative sentiments in the survey. Specific comments
+which are associated with the most popular sentiments are listed below.
+
+### Sentiment Clouds {.tabset}
+
+#### Discourse
+```{r swordcloud, echo=FALSE, message=FALSE, warning=FALSE}
+get_sentiments_wordcloud(get_bingnrc_word_frequencies(EFRA.corpus.df, "bing"), "bing")
+```
+
+
+#### Twitter
+
+```{r tweetwordcloud, echo=FALSE, message=FALSE, warning=FALSE}
+get_sentiments_wordcloud(get_bingnrc_word_frequencies(EFRA.dtweets.corpus.df, "bing"), "bing")
+```
+
+
+### Sentiment Categories {.tabset}
+
+The  **NRC** sentiment lexicon uses categorical scale to measure 2 sentiments (positive and negative), and 8 emotions (anger, anticipation, disgust, trust, joy, sadness, fear, and suprise).
+Examples of words and comments in these sentiment categories are below. 
+
+In the Discourse debate, the majority of submissions were positive but also categorised as *trust*, *negative*, and *fear*. 
+
+On the other hand, the Twitter discussion was much less varied overall with *positive*, *joy* and *trust* being the prominent sentiments expressed. This suggests more firm opinions were being expressed on this platform. However, there were much fewer tweets than Discourse comments so this could impact the accuracy of the results.
+
+```{r nrc2, echo=FALSE, message=FALSE, fig.width=10}
+  grid.arrange(
+    plot_bingnrc_distributions(get_bingnrc_document_frequencies(EFRA.corpus,"nrc"), "Plastic Food Packaging Discourse Discussion", "nrc"),
+    
+    plot_bingnrc_distributions(get_bingnrc_document_frequencies(EFRA.dtweets.corpus,"nrc"), "Plastic Food Packaging Twitter Discussion", "nrc")
+  , ncol=2)
+```
+
+
+Hover over the plot below to read the content of the comments within each sentiment category.
+
+#### Discourse
+
+```{r comments,echo=FALSE, message=FALSE, warning=FALSE }
+ggplotly(display_topic_comments(get_sentiment_comments(EFRA.corpus.df, EFRA.comments, "nrc"), "Plastic Food Packaging Discussion"), width=1000, height = 600) %>% config(displayModeBar=FALSE) %>% hide_legend()
+```
+
+
+***
+
+An example of a comment categorised as **positive**
+
+  > `r EFRA.comments[127,][[1]]`
+
+
+An example of a comment categorised as **trust**
+
+  > `r EFRA.comments[2596,][[1]]`
+
+An example of a comment categorised as **negative**
+
+  > `r EFRA.comments[1573,][[1]]`
+
+An example of a comment categorised as **fear**
+
+  > `r EFRA.comments[2523,][[1]]`
+
+
+#### Twitter
+
+```{r tweets,echo=FALSE, message=FALSE, warning=FALSE }
+ggplotly(display_topic_comments(get_sentiment_comments(EFRA.dtweets.corpus.df, EFRA.dtweets, "nrc"), "PlasticFood Packaging Twitter Discussion"), width=1000, height = 600) %>% config(displayModeBar=FALSE) %>% hide_legend()
+```
+
+
+
+An example of a tweet categorised as **positive**
+
+  > `r EFRA.dtweets[EFRA.dtweets$document == "EFRAtweet189", ][[2]]`
+
+
+An example of a tweet categorised as **trust and joy**
+
+  > `r EFRA.dtweets[EFRA.dtweets$document == "EFRAtweet189", ][[2]]`
+  > `r EFRA.dtweets[EFRA.dtweets$document == "EFRAtweet72", ][[2]]`
+
+
+
